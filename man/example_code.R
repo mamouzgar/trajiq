@@ -54,7 +54,7 @@ dif_res_by_ct = trajiq::differential_analysis_program(glm_input = glm_input,outc
 ###############################################################################################
 glm_input_sampled = glm_input %>%
      group_by(patient_id, tissue, annotation_lin_sub) %>%
-     group_map(~trajiq:::downsampleWith_group_by(., 50),.keep = T) %>% bind_rows()
+     group_map(~downsampleWith_group_by(., 50),.keep = T) %>% bind_rows()
 dif_res_by_ct = trajiq::differential_analysis_program(glm_input = glm_input_sampled ,outcome_features = my_features, contrast_variables = contrast_variables, covariates_in_model = 'patient_id',intercept = TRUE,contrast_method = 'emm',
                                                       SPLIT_BY_NAMES = c('annotation_lin_sub','annotation_subset'))
 
