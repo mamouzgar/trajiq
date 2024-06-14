@@ -39,9 +39,25 @@
 #' @importFrom utils combn
 #' @importFrom stats p.adjust
 #' @importFrom multcomp glht
-#'
+#' @importFrom emmeans emmeans
 #'
 
+#' @title downsampleWith_group_by
+#' @description downsampleWith_group_by will randomly sample from each group in your dataset that you've specified using group_by. If the # of observations is less than the desired # to sample, then it will sample all the cells in that group.
+#' @param df dataset
+#' @param sampleN the max # of observations (eg,cells) to sample per group. If
+#' @export
+downsampleWith_group_by = function(df, sampleN){
+     if (nrow(df) >= sampleN){
+          sample.ind = sample(1:nrow(df), sampleN)
+          return(tibble::tibble(df[sample.ind, ]))
+     } else {
+          return(tibble::tibble(df))
+     }
+}
+# DATA_SET = DATA_SET %>%
+#      group_by(patient_id, annotation_lin_sub, annotation_subset,tissue )  %>%
+#      group_map(~sample_value_or_minimum(., 200),.keep = T) %>% bind_rows()
 
 ## constructs simple glm
 #' @description construct_model
@@ -82,11 +98,14 @@ construct_model = function(glm_input, outcome_features, contrast_variables=NULL,
                     # warning(cond)
                     message('failed to construct model...', myFormula)
                     glm_res='FAILED'
+                    return(glm_res)
                }
           )
+          # print(glm_res)
           return(glm_res)
      })
      names(myGLM) = outcome_features
+     # TEST <<-myGLM
 
      return(list(myGLM=myGLM, group =  glm_input$group))
 }
@@ -180,22 +199,63 @@ TukeyWukey = function(myGLM, combos_df, contrast_variables){
                     multitest_res='FAILED'
                }
           )
-          # print(multitest_res)
           if (multitest_res=='FAILED'){
-               # print(multitest_res)
                return( data.frame(estimate = NA,
                                   pval =NA,
                                   comparison = NA,
                                   feature =glm_res_name ) )
+          } else {
+
+               multitest_res_summary = summary(multitest_res)
+
+               multitest_res_summary_df = data.frame(estimate = multitest_res_summary$test$coefficients,
+                                                     pval = multitest_res_summary$test$pvalues,
+                                                     comparison = names(multitest_res_summary$test$coefficients)) %>%
+                    mutate(feature = glm_res_name)
           }
-
-          multitest_res_summary = summary(multitest_res)
-
-          multitest_res_summary_df = data.frame(estimate = multitest_res_summary$test$coefficients,
-                                                pval = multitest_res_summary$test$pvalues,
-                                                comparison = names(multitest_res_summary$test$coefficients)) %>%
-               mutate(feature = glm_res_name)
           return(multitest_res_summary_df)
+     }) %>% bind_rows() %>%
+          mutate(comparison =gsub('`|group','',comparison)) %>%
+          separate(col = 'comparison',sep = ' - ',into = c('group1','group2'), remove = F)  %>%
+          separate(col = 'group1',sep = '_-_',into = paste0(contrast_variables,'1'), remove = F)  %>%
+          separate(col = 'group2',sep = '_-_',into = paste0(contrast_variables,'2'), remove = F)  #%>%
+     comparison_contrasts = sapply(contrast_variables, function(dd){
+          multitest_pairstest[[paste0(dd,'_comparison')]] = paste(multitest_pairstest[[paste0(dd,'1')]], multitest_pairstest[[paste0(dd,'2')]], sep = '-vs-')
+     })  %>% data.frame()%>%
+          dplyr::rename_all(~paste0(.x,'_comparison'))
+
+     multitest_pairstest=multitest_pairstest  %>%
+          bind_cols(comparison_contrasts) %>%
+          mutate(padj = p.adjust(pval, method  = 'BH'),
+                 minus_log10padj  = -1*log10(padj))
+     return(multitest_pairstest)
+}
+
+
+## runs estimated marginal means analysis
+#' @description TukeyWukey
+#' @keywords internal
+#' @noRd
+emmy = function(myGLM, contrast_variables){
+     multitest_pairstest = lapply(names(myGLM), function(glm_res_name){
+          glm_res = myGLM[[glm_res_name]]
+
+          if( glm_res =='FAILED'){
+               # print(glm_res)
+               message('failed to compute...', 'contrast: ',  contrast_variables,' - feature: ',glm_res_name,'...skipping')
+               emm_df = data.frame(estimate = NA,
+                                   pval =NA,
+                                   comparison = NA,
+                                   feature =glm_res_name )
+          } else {
+
+               emm_df = pairs(emmeans::emmeans(glm_res, "group")) %>%
+                    data.frame() %>%
+                    mutate(feature = glm_res_name) %>%
+                    dplyr::select(estimate, pval = p.value, comparison = contrast, feature)
+               # print('returning emmdf')
+          }
+          return(emm_df)
      }) %>% bind_rows() %>%
           mutate(comparison =gsub('`|group','',comparison)) %>%
           separate(col = 'comparison',sep = ' - ',into = c('group1','group2'), remove = F)  %>%
@@ -224,15 +284,30 @@ TukeyWukey = function(myGLM, combos_df, contrast_variables){
 #' @description differential_analysis_program_simple
 #' @keywords internal
 #' @noRd
-differential_analysis_program_simple = function(glm_input, outcome_features,contrast_variables,covariates_in_model,intercept=TRUE){
+differential_analysis_program_simple = function(glm_input, outcome_features,contrast_variables,covariates_in_model,intercept=TRUE,contrast_method = 'emm'){
      glm_res = construct_model(glm_input = glm_input,outcome_features = outcome_features, contrast_variables = contrast_variables, covariates_in_model = covariates_in_model,intercept = intercept)
      # myCoef = compute_simple_coef(glm_res$myGLM)
      glm_input$group = glm_res$group
      my_group = unique(glm_input$group)
-     my_tukeywukey_combos = create_TukeyWukey_combos(levels(my_group))
-     tukey_res = TukeyWukey(myGLM = glm_res$myGLM,combos_df =  my_tukeywukey_combos,contrast_variables = contrast_variables)
-     message('TukeyWukey complete!')
-     return(tukey_res)
+
+     if (contrast_method=='emm'){
+          DIF_RES = emmy(glm_res$myGLM, contrast_variables)
+          message('emmy complete!')
+     } else if (contrast_method == 'tukey') {
+
+          if(is.null(levels(my_group))){
+               my_tukeywukey_combos = create_TukeyWukey_combos(my_group)
+
+          } else {
+               my_tukeywukey_combos = create_TukeyWukey_combos(levels(my_group))
+          }
+          DIF_RES = TukeyWukey(myGLM = glm_res$myGLM,combos_df =  my_tukeywukey_combos,contrast_variables = contrast_variables)
+          message('TukeyWukey complete!')
+     } else {
+          message('did not provide valid contrast method of: emm or tukey')
+     }
+
+     return(DIF_RES)
 }
 
 #' @title differential_analysis_program
@@ -243,18 +318,19 @@ differential_analysis_program_simple = function(glm_input, outcome_features,cont
 #' @param covariates_in_model a vector of your covariates that you want to control for. Also used for a matched analysis. eg, c("mouse_id"),
 #' @param intercept whether you want to set the intercept to 0 or not. Default is TRUE. Leave as-is unless you know to remove intercept.
 #' @param SPLIT_BY_NAMES A vector of groups you want to restrict each analysis within. Use this if you want to subset the analyis within distinct groups (eg, within celltype), you can use this arguement to split the analysis. Eg ,c("celltype","tissue").
+#' @param contrast_method Either estimated marginal means or tukey ('emm','tukey'). defaulst to emm
 #' @export
-differential_analysis_program = function(glm_input, outcome_features,contrast_variables,covariates_in_model,intercept=TRUE, SPLIT_BY_NAMES=NULL){
+differential_analysis_program = function(glm_input, outcome_features,contrast_variables,covariates_in_model,intercept=TRUE, contrast_method = 'emm', SPLIT_BY_NAMES=NULL){
      if (!is.null(SPLIT_BY_NAMES)){
-          tukey_res =  glm_input %>%
+          DIF_RES =  glm_input %>%
                group_by_at(SPLIT_BY_NAMES)%>%
-               group_modify(~differential_analysis_program_simple(glm_input = .,outcome_features = outcome_features, contrast_variables = contrast_variables, covariates_in_model = covariates_in_model,intercept = intercept) ,
+               group_modify(~differential_analysis_program_simple(glm_input = .,outcome_features = outcome_features, contrast_variables = contrast_variables, covariates_in_model = covariates_in_model,intercept = intercept,contrast_method = contrast_method) ,
                             .keep = T
                )
      } else {
-          tukey_res = differential_analysis_program_simple(glm_input = glm_input,outcome_features = outcome_features, contrast_variables = contrast_variables, covariates_in_model = covariates_in_model,intercept = intercept)
+          DIF_RES = differential_analysis_program_simple(glm_input = glm_input,outcome_features = outcome_features, contrast_variables = contrast_variables, covariates_in_model = covariates_in_model,intercept = intercept,contrast_method = contrast_method)
      }
-     return(tukey_res)
+     return(DIF_RES)
 }
 # ##' glm input: a dataframe of rows = cells or samples, and columns as your metadata and features of interest. These features should be outcome variables. Make sure column names are in R-friendly format.
 # ##' FYI: + and - is not handled well i R. use gsub('\\+','pos',column_name) and gsub('\\+','neg',column_name)  to fix names as R-friendly before using make.names().
