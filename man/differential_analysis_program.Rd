@@ -10,6 +10,7 @@ differential_analysis_program(
   contrast_variables,
   covariates_in_model,
   intercept = TRUE,
+  contrast_method = "emm",
   SPLIT_BY_NAMES = NULL
 )
 }
@@ -23,6 +24,8 @@ differential_analysis_program(
 \item{covariates_in_model}{a vector of your covariates that you want to control for. Also used for a matched analysis. eg, c("mouse_id"),}
 
 \item{intercept}{whether you want to set the intercept to 0 or not. Default is TRUE. Leave as-is unless you know to remove intercept.}
+
+\item{contrast_method}{Either estimated marginal means or tukey ('emm','tukey'). defaulst to emm}
 
 \item{SPLIT_BY_NAMES}{A vector of groups you want to restrict each analysis within. Use this if you want to subset the analyis within distinct groups (eg, within celltype), you can use this arguement to split the analysis. Eg ,c("celltype","tissue").}
 }
