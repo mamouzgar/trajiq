@@ -8,7 +8,7 @@ scaled_cell_table =readRDS('/Users/meelad/Downloads/scaled_celltable.RDS')
 glm_test = scaled_cell_table %>%
      # dplyr::filter(annotation_subset  ==  'Naive' &  annotation_lin_sub %in%  c('B Cells_Naive') | annotation_subset == 'DN T Cells' & annotation_lin_sub ==  'DN T Cells_DN T Cells') %>%
      group_by(patient_id, annotation_lin_sub, annotation_subset,tissue , mouse,ed)  %>%
-     group_map(~trajiq:::downsampleWith_group_by(., 50),.keep = T) %>% bind_rows()
+     group_map(~downsampleWith_group_by(., 50),.keep = T) %>% bind_rows()
 # saveRDS(glm_test,'~/Downloads/sampled_inputkb.rds')
 # glm_test =readRDS('~/Downloads/sampled_inputkb.rds')
 
