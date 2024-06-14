@@ -167,7 +167,8 @@ TukeyWukey = function(myGLM, combos_df, contrast_variables){
 
           )
           # print(multitest_res)
-          if (is.na(multitest_res)){
+          if (anyNA(multitest_res)){
+               # print(multitest_res)
                return( data.frame(estimate = NA,
                                   pval =NA,
                                   comparison = NA,

@@ -38,7 +38,7 @@ dif_res = trajiq::differential_analysis_program(glm_input = glm_input,outcome_fe
 ###############################################################################################
 # (D) example code to split across multiple subsets of interest
 ###############################################################################################
-dif_res_by_ct = trajiq::differential_analysis_program(glm_input = glm_input,outcome_features = my_features, contrast_variables = contrast_variables, covariates_in_model = covariates_in_model,intercept = TRUE,
+dif_res_by_ct = trajiq::differential_analysis_program(glm_input = x,outcome_features = my_features, contrast_variables = contrast_variables, covariates_in_model = 'patient_id',intercept = TRUE,
                                                       SPLIT_BY_NAMES = c('annotation_lin_sub','annotation_subset'))
 
 
