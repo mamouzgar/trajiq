@@ -213,11 +213,11 @@ differential_analysis_program = function(glm_input, outcome_features,contrast_va
      if (!is.null(SPLIT_BY_NAMES)){
           tukey_res =  glm_input %>%
                group_by_at(SPLIT_BY_NAMES)%>%
-               group_modify(~differential_analysis_program_simple(glm_input = .,outcome_features = my_features, contrast_variables = contrast_variables, covariates_in_model = covariates_in_model,intercept = intercept) ,
+               group_modify(~differential_analysis_program_simple(glm_input = .,outcome_features = outcome_features, contrast_variables = contrast_variables, covariates_in_model = covariates_in_model,intercept = intercept) ,
                             .keep = T
                )
      } else {
-          tukey_res = differential_analysis_program_simple(glm_input = glm_input,outcome_features = my_features, contrast_variables = contrast_variables, covariates_in_model = covariates_in_model,intercept = intercept)
+          tukey_res = differential_analysis_program_simple(glm_input = glm_input,outcome_features = outcome_features, contrast_variables = contrast_variables, covariates_in_model = covariates_in_model,intercept = intercept)
      }
      return(tukey_res)
 }
@@ -227,10 +227,10 @@ differential_analysis_program = function(glm_input, outcome_features,contrast_va
 # ##' contrast_variables: a vector of your contrast variables of interest. You likely just have just 1 value here,  unless you want to study interaction effects. eg, c('tissue')
 # ##' covariates_in_model: a vector of your covariates that you want to control for. Also used for a matched analysis. eg, c("mouse_id"),
 # ##' intercept: whether you want to set the intercept to 0 or not. Default is TRUE. Leave as-is unless you know to remove intercept.
-# dif_res =differential_analysis_program(glm_input = glm_input,outcome_features = my_features, contrast_variables = contrast_variables, covariates_in_model = covariates_in_model,intercept = TRUE)
+# dif_res =differential_analysis_program(glm_input = glm_input,outcome_features = outcome_features, contrast_variables = contrast_variables, covariates_in_model = covariates_in_model,intercept = TRUE)
 
 # differential_analysis_program but broken down with example code
-# glm_res = construct_model(glm_input = glm_input,outcome_features = my_features, contrast_variables = c('tissue'), covariates_in_model = covariates_in_model,intercept = TRUE)
+# glm_res = construct_model(glm_input = glm_input,outcome_features = outcome_features, contrast_variables = c('tissue'), covariates_in_model = covariates_in_model,intercept = TRUE)
 # myCoef = compute_simple_coef(glm_res$myGLM)
 # glm_input$group = glm_res$group
 # my_group = unique(glm_input$group)
