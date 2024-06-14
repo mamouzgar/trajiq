@@ -35,6 +35,16 @@ my_features = c('CD4','CD40','FOXP3') ## make sure these are in the object (no s
 # my_features %in% colnames(glm_input)
 dif_res = trajiq::differential_analysis_program(glm_input = glm_input,outcome_features = my_features, contrast_variables = contrast_variables, covariates_in_model = covariates_in_model,intercept = TRUE)
 
+###############################################################################################
+# (D) example code to split across multiple subsets of interest
+###############################################################################################
+dif_res_by_ct = trajiq::differential_analysis_program(glm_input = glm_input,outcome_features = my_features, contrast_variables = contrast_variables, covariates_in_model = covariates_in_model,intercept = TRUE,
+                                                      SPLIT_BY_NAMES = c('annotation_lin_sub','annotation_subset'))
+
+
+
+
+
 
 
 

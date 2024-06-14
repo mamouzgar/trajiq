@@ -185,6 +185,20 @@ TukeyWukey = function(myGLM, combos_df, contrast_variables){
 # ##' contrast_variables: a vector of your contrast variables of interest. You likely just have just 1 value here,  unless you want to study interaction effects. eg, c('tissue')
 # ##' covariates_in_model: a vector of your covariates that you want to control for. Also used for a matched analysis. eg, c("mouse_id"),
 # ##' intercept: whether you want to set the intercept to 0 or not. Default is TRUE. Leave as-is unless you know to remove intercept.
+## runs tukey analysis
+#' @description differential_analysis_program_simple
+#' @keywords internal
+#' @noRd
+differential_analysis_program_simple = function(glm_input, outcome_features,contrast_variables,covariates_in_model,intercept=TRUE){
+     glm_res = construct_model(glm_input = glm_input,outcome_features = outcome_features, contrast_variables = contrast_variables, covariates_in_model = covariates_in_model,intercept = intercept)
+     # myCoef = compute_simple_coef(glm_res$myGLM)
+     glm_input$group = glm_res$group
+     my_group = unique(glm_input$group)
+     my_tukeywukey_combos = create_TukeyWukey_combos(levels(my_group))
+     tukey_res = TukeyWukey(myGLM = glm_res$myGLM,combos_df =  my_tukeywukey_combos,contrast_variables = contrast_variables)
+     message('TukeyWukey complete!')
+     return(tukey_res)
+}
 
 #' @title differential_analysis_program
 #' @description wrapper function for differential analysis
@@ -193,15 +207,18 @@ TukeyWukey = function(myGLM, combos_df, contrast_variables){
 #' @param contrast_variables a vector of your contrast variables of interest. You likely just have just 1 value here,  unless you want to study interaction effects. eg, c('tissue')
 #' @param covariates_in_model a vector of your covariates that you want to control for. Also used for a matched analysis. eg, c("mouse_id"),
 #' @param intercept whether you want to set the intercept to 0 or not. Default is TRUE. Leave as-is unless you know to remove intercept.
+#' @param SPLIT_BY_NAMES A vector of groups you want to restrict each analysis within. Use this if you want to subset the analyis within distinct groups (eg, within celltype), you can use this arguement to split the analysis. Eg ,c("celltype","tissue").
 #' @export
-differential_analysis_program = function(glm_input, outcome_features,contrast_variables,covariates_in_model,intercept=TRUE){
-     glm_res = construct_model(glm_input = glm_input,outcome_features = outcome_features, contrast_variables = contrast_variables, covariates_in_model = covariates_in_model,intercept = intercept)
-     # myCoef = compute_simple_coef(glm_res$myGLM)
-     glm_input$group = glm_res$group
-     my_group = unique(glm_input$group)
-     my_tukeywukey_combos = create_TukeyWukey_combos(levels(my_group))
-     tukey_res = TukeyWukey(myGLM = glm_res$myGLM,combos_df =  my_tukeywukey_combos,contrast_variables = contrast_variables)
-     message('TukeyWukey complete!')
+differential_analysis_program = function(glm_input, outcome_features,contrast_variables,covariates_in_model,intercept=TRUE, SPLIT_BY_NAMES=NULL){
+     if (!is.null(SPLIT_BY_NAMES)){
+          tukey_res =  glm_input %>%
+               group_by_at(SPLIT_BY_NAMES)%>%
+               group_modify(~differential_analysis_program_simple(glm_input = .,outcome_features = my_features, contrast_variables = contrast_variables, covariates_in_model = covariates_in_model,intercept = intercept) ,
+                            .keep = T
+               )
+     } else {
+          tukey_res = differential_analysis_program_simple(glm_input = glm_input,outcome_features = my_features, contrast_variables = contrast_variables, covariates_in_model = covariates_in_model,intercept = intercept)
+     }
      return(tukey_res)
 }
 # ##' glm input: a dataframe of rows = cells or samples, and columns as your metadata and features of interest. These features should be outcome variables. Make sure column names are in R-friendly format.
