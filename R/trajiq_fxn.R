@@ -160,7 +160,7 @@ TukeyWukey = function(myGLM, combos_df, contrast_variables){
                },
                error = function(cond) {
                     # warning(cond)
-                    message('failed to compute...skipping')
+                    message('failed to compute...', glm_res_name,'...skipping')
                     return(NA)
                }
 
