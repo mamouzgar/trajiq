@@ -73,7 +73,17 @@ construct_model = function(glm_input, outcome_features, contrast_variables=NULL,
                myFormula = paste0(ro , intercept_choice) %>% as.formula()
 
           }
-          glm_res =glm(formula = myFormula, data = glm_input,family = gaussian)
+
+          glm_res =  tryCatch(
+               {
+                    glm_res =glm(formula = myFormula, data = glm_input,family = gaussian)
+               },
+               error = function(cond) {
+                    # warning(cond)
+                    message('failed to construct model...', myFormula)
+                    glm_res='FAILED'
+               }
+          )
           return(glm_res)
      })
      names(myGLM) = outcome_features
@@ -147,6 +157,12 @@ TukeyWukey = function(myGLM, combos_df, contrast_variables){
      multitest_pairstest = lapply(names(myGLM), function(glm_res_name){
           # message(glm_res_name)
           glm_res = myGLM[[glm_res_name]]
+          if(glm_res=='FAILED'){
+               return(data.frame(estimate = NA,
+                                 pval =NA,
+                                 comparison = NA,
+                                 feature =glm_res_name ) )
+          }
           # glm_df = data.frame(summary(glm_res)$coef, check.rows = F, check.names = F)%>%
           #      # bind_cols(data.frame(anova(glm_res), check.rows = F, check.names = F)) %>%
           #      mutate(coef = rownames(.))%>%
@@ -161,13 +177,11 @@ TukeyWukey = function(myGLM, combos_df, contrast_variables){
                error = function(cond) {
                     # warning(cond)
                     message('failed to compute...', 'contrast: ',  contrast_variables,' - feature: ',glm_res_name,'...skipping')
-                    return(NA)
+                    multitest_res='FAILED'
                }
-
-
           )
           # print(multitest_res)
-          if (anyNA(multitest_res)){
+          if (multitest_res=='FAILED'){
                # print(multitest_res)
                return( data.frame(estimate = NA,
                                   pval =NA,
