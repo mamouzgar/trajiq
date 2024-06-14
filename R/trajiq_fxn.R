@@ -152,7 +152,27 @@ TukeyWukey = function(myGLM, combos_df, contrast_variables){
           #      mutate(coef = rownames(.))%>%
           #      mutate(feature = glm_res_name)
           # multitest_res <- glht(glm_res, linfct = mcp(treatment_timepoint = "Tukey"))
-          multitest_res <- multcomp::glht(glm_res, linfct = combos_df$COMPARISON)
+          # multitest_res <- multcomp::glht(glm_res, linfct = combos_df$COMPARISON)
+
+          multitest_res =  tryCatch(
+               {
+                    multitest_res <- multcomp::glht(glm_res, linfct = combos_df$COMPARISON)
+               },
+               error = function(cond) {
+                    # warning(cond)
+                    message('failed to compute...skipping')
+                    return(NA)
+               }
+
+
+          )
+          # print(multitest_res)
+          if (is.na(multitest_res)){
+               return( data.frame(estimate = NA,
+                                  pval =NA,
+                                  comparison = NA,
+                                  feature =glm_res_name ) )
+          }
 
           multitest_res_summary = summary(multitest_res)
 
