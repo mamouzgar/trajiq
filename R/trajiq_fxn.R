@@ -97,7 +97,7 @@ construct_model = function(glm_input, outcome_features, contrast_variables=NULL,
                error = function(cond) {
                     # warning(cond)
                     message('failed to construct model...', myFormula)
-                    glm_res='FAILED'
+                    glm_res=NA
                     return(glm_res)
                }
           )
@@ -176,7 +176,7 @@ TukeyWukey = function(myGLM, combos_df, contrast_variables){
      multitest_pairstest = lapply(names(myGLM), function(glm_res_name){
           # message(glm_res_name)
           glm_res = myGLM[[glm_res_name]]
-          if(glm_res=='FAILED'){
+          if(any(is.na(glm_res))){
                return(data.frame(estimate = NA,
                                  pval =NA,
                                  comparison = NA,
@@ -196,10 +196,10 @@ TukeyWukey = function(myGLM, combos_df, contrast_variables){
                error = function(cond) {
                     # warning(cond)
                     message('failed to compute...', 'contrast: ',  contrast_variables,' - feature: ',glm_res_name,'...skipping')
-                    multitest_res='FAILED'
+                    multitest_res=NA
                }
           )
-          if (multitest_res=='FAILED'){
+          if(any(is.na(multitest_res))) {
                return( data.frame(estimate = NA,
                                   pval =NA,
                                   comparison = NA,
@@ -240,7 +240,7 @@ emmy = function(myGLM, contrast_variables){
      multitest_pairstest = lapply(names(myGLM), function(glm_res_name){
           glm_res = myGLM[[glm_res_name]]
 
-          if( glm_res =='FAILED'){
+          if(any(is.na(glm_res))) {
                # print(glm_res)
                message('failed to compute...', 'contrast: ',  contrast_variables,' - feature: ',glm_res_name,'...skipping')
                emm_df = data.frame(estimate = NA,

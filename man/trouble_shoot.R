@@ -2,15 +2,15 @@
 library(trajiq)
 library(tidyverse)
 contrast_variables = c('tissue')
-my_features = c('FOXP3')
+my_features = c('PDL1','CTLA4','PD1')
 
-scaled_cell_table =readRDS('/Users/meelad/Downloads/scaled_celltable.RDS')
-glm_test = scaled_cell_table %>%
-     # dplyr::filter(annotation_subset  ==  'Naive' &  annotation_lin_sub %in%  c('B Cells_Naive') | annotation_subset == 'DN T Cells' & annotation_lin_sub ==  'DN T Cells_DN T Cells') %>%
-     group_by(patient_id, annotation_lin_sub, annotation_subset,tissue , mouse,ed)  %>%
-     group_map(~downsampleWith_group_by(., 50),.keep = T) %>% bind_rows()
+# scaled_cell_table =readRDS('/Users/meelad/Downloads/scaled_celltable.RDS')
+# glm_test = scaled_cell_table %>%
+#      # dplyr::filter(annotation_subset  ==  'Naive' &  annotation_lin_sub %in%  c('B Cells_Naive') | annotation_subset == 'DN T Cells' & annotation_lin_sub ==  'DN T Cells_DN T Cells') %>%
+#      group_by(patient_id, annotation_lin_sub, annotation_subset,tissue , mouse,ed)  %>%
+#      group_map(~downsampleWith_group_by(., 50),.keep = T) %>% bind_rows()
 # saveRDS(glm_test,'~/Downloads/sampled_inputkb.rds')
-# glm_test =readRDS('~/Downloads/sampled_inputkb.rds')
+glm_test =readRDS('~/Downloads/sampled_inputkb.rds')
 
 
 glm_test=glm_test %>%
@@ -18,6 +18,13 @@ glm_test=glm_test %>%
 dif_res_by_ct = trajiq::differential_analysis_program(glm_input = glm_test ,outcome_features = my_features, contrast_variables = contrast_variables, covariates_in_model = 'patient_id',intercept = TRUE,contrast_method = 'emm',
                                                       SPLIT_BY_NAMES = c('annotation_lin_sub','annotation_subset'))
 dif_res_by_ct
+
+dif_res_by_ct = trajiq::differential_analysis_program(glm_input = glm_test2 ,outcome_features = my_features, contrast_variables = contrast_variables, covariates_in_model = 'patient_id',intercept = TRUE,contrast_method = 'emm',
+                                                      SPLIT_BY_NAMES = c('annotation_lin_sub','annotation_subset'))
+dif_res_by_ct
+
+
+
 
 dif_res_by_ct = trajiq::differential_analysis_program(glm_input = glm_test ,outcome_features = my_features, contrast_variables = contrast_variables, covariates_in_model = 'patient_id',intercept = TRUE,contrast_method = 'tukey',
                                                       SPLIT_BY_NAMES = c('annotation_lin_sub','annotation_subset'))
