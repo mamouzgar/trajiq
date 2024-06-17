@@ -321,7 +321,7 @@ differential_analysis_program_simple = function(glm_input, outcome_features,cont
 #' @param SPLIT_BY_NAMES A vector of groups you want to restrict each analysis within. Use this if you want to subset the analyis within distinct groups (eg, within celltype), you can use this arguement to split the analysis. Eg ,c("celltype","tissue").
 #' @param contrast_method Either estimated marginal means or tukey ('emm','tukey'). defaulst to emm
 #' @export
-differential_analysis_program = function(glm_input, outcome_features,contrast_variables,covariates_in_model,intercept=TRUE, contrast_method = 'emm', SPLIT_BY_NAMES=NULL){
+differential_analysis_program = function(glm_input, outcome_features,contrast_variables,covariates_in_model=NULL,intercept=TRUE, contrast_method = 'emm', SPLIT_BY_NAMES=NULL){
      if (!is.null(SPLIT_BY_NAMES)){
           DIF_RES =  glm_input %>%
                group_by_at(SPLIT_BY_NAMES)%>%
