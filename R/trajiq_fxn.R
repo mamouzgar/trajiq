@@ -258,6 +258,7 @@ emmy = function(myGLM, contrast_variables){
           return(emm_df)
      }) %>% bind_rows() %>%
           mutate(comparison =gsub('`|group','',comparison)) %>%
+          mutate(comparison =gsub('\\(|\\)','',comparison)) %>%
           separate(col = 'comparison',sep = ' - ',into = c('group1','group2'), remove = F)  %>%
           separate(col = 'group1',sep = '_-_',into = paste0(contrast_variables,'1'), remove = F)  %>%
           separate(col = 'group2',sep = '_-_',into = paste0(contrast_variables,'2'), remove = F)  #%>%
