@@ -98,5 +98,8 @@ ggplot(omg_summary%>% dplyr::filter(tissue =='PB') , aes(x = ed_bin,  y= CD40)) 
 
 
 
-
+ggplot(md, aes(x=  patient_id, y = tissue ))+
+     geom_tile(fill = 'blue') +
+     ggpubr::rotate_x_text(90)+
+     facet_wrap(~ed_bin, ncol = 1)
 

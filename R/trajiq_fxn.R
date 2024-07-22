@@ -40,7 +40,7 @@
 #' @importFrom stats p.adjust
 #' @importFrom multcomp glht
 #' @importFrom emmeans emmeans
-#'
+#' @importFrom RANN nn2
 
 #' @title downsampleWith_group_by
 #' @description downsampleWith_group_by will randomly sample from each group in your dataset that you've specified using group_by. If the # of observations is less than the desired # to sample, then it will sample all the cells in that group.
@@ -285,7 +285,7 @@ emmy = function(myGLM, contrast_variables){
 #' @description differential_analysis_program_simple
 #' @keywords internal
 #' @noRd
-differential_analysis_program_simple = function(glm_input, outcome_features,contrast_variables,covariates_in_model,intercept=TRUE,contrast_method = 'emm'){
+differential_analysis_program_simple = function(glm_input, outcome_features,contrast_variables,covariates_in_model,intercept=TRUE,contrast_method = 'emm', return_coefs =FALSE){
      glm_res = construct_model(glm_input = glm_input,outcome_features = outcome_features, contrast_variables = contrast_variables, covariates_in_model = covariates_in_model,intercept = intercept)
      # myCoef = compute_simple_coef(glm_res$myGLM)
      glm_input$group = glm_res$group
@@ -354,4 +354,100 @@ differential_analysis_program = function(glm_input, outcome_features,contrast_va
 # tukey_res = TukeyWukey(myGLM = glm_res$myGLM,combos_df =  my_tukeywukey_combos,contrast_variables = contrast_variables)
 #
 #
+
+########################################################
+## LIKELIHOOD SCORES AND KNN SEARCH APPROACHES  ##
+########################################################
+#' @description calculate_likelihood_score
+#' @keywords internal
+#' @noRd
+calculate_likelihood_score = function(df_features_only, labels){
+     ## reurns a dataframe of eachnscore
+     meld_likelihood_score <- reticulate::import('meld')
+     np <- reticulate::import('numpy')
+     pd <- reticulate::import('pandas')
+
+     # Estimate density of each sample over the graph
+     pd_df = pd$pandas$DataFrame(df_features_only )
+     sample_densities = meld_likelihood_score$meld$MELD()$fit_transform(X = pd_df, sample_labels = np$array(labels) )
+     sample_likelihoods = meld_likelihood_score$meld$utils$normalize_densities(sample_densities)
+     return(sample_likelihoods)
+}
+
+#' @description wrangle_data_for_knn_index_resolution
+#' @keywords internal
+#' @noRd
+wrangle_data_for_knn_index_resolution = function(full_data,LM_col=NULL,LM_group=NULL, LM_data=NULL){
+     if(!'cell.id' %in% colnames(full_data) ){
+          stop('input data must have a cell.id column')
+     }
+     if( !is.null(LM_data)){
+          if(!'cell.id' %in% colnames(LM_data) ){
+               stop('landmark data must have a cell.id column')
+          }
+          QUERY_DF = LM_data %>%
+               bind_rows(full_data %>% dplyr::filter(!cell.id %in%  LM_data$cell.id))
+     } else {
+
+          if(!LM_col %in% colnames(full_data) ){
+               stop(paste0('input data does not contain the provided column for the "LM_col" arguement: ',LM_col))
+          }
+
+          if(!LM_group %in% unique(full_data[[LM_col]]) ){
+               stop(paste0(LM_col, ' does not contain ',LM_group))
+          }
+          # LM_col = 'condition'
+          # LM_group = 'WT'
+          LM_df = full_data %>% .[.[[LM_col]]==LM_group,]
+          PROJECT_DF = full_data %>% .[!.[[LM_col]]==LM_group,]
+          QUERY_DF = bind_rows(LM_df,PROJECT_DF)
+     }
+
+     return(QUERY_DF)
+}
+
+
+#' @title downsampleWith_group_by
+#' @description calculate Likelihood score for group
+#' @param full_data dataset
+#' @param LM_data data to use to cmopute likelihood scores (useful if you have a  very big dataset)
+#' @param LM_col column containing your conditions (eg, 'condition' or 'treatment' or 'disease')
+#' @param LM_data data to use to cmopute likelihood scores (useful if you have a  very big dataset)
+#' @export
+calculate_and_project_likelihood_score= function(full_data, LM_data, LM_col, features, return_knn_graph =FALSE){
+     project_approach ='score'
+     # df_landmark = LM_data %>% .[.[[LM_col]]==LM_group,]
+     # full_data_features_only = restructured_data %>% dplyr::select(all_of(features))
+
+     message('calculating likelihood score...')
+     sample_likelihoods = calculate_likelihood_score(LM_data %>% dplyr::select(all_of(features)),labels = LM_data[[LM_col]])
+     # LM_data = LM_data %>%
+     #      dplyr::select(cell.id) %>%
+     #      bind_cols(sample_likelihoods)
+
+
+     message('restructuring data for knn search...')
+     restructured_data = wrangle_data_for_knn_index_resolution(full_data = full_data,LM_data = LM_data)
+
+     message('projecting likelihoods...')
+     knn_res_full = RANN::nn2(data = LM_data %>% dplyr::select(all_of(features)), query =restructured_data%>% dplyr::select(all_of(features)), searchtype = 'standard',eps=0,treetyp = 'kd',
+                              k = 2)
+     if(return_knn_graph ==T){
+          return(knn_res_full)
+     }
+     message('extracting nearest cell and returning scores with original indexing...')
+     score_res_project = apply(knn_res_full$nn.idx,  1, function(inds){
+          if (project_approach == 'score') {
+               condition_lklhd = sample_likelihoods[inds[1],]
+          }
+          if (project_approach == 'distance') {
+               condition_lklhd = knn_res_full$nn.dists[inds[1],1 ]
+          }
+          # condition_lklhd = condition_lklhd/length(inds)
+          return(condition_lklhd)
+     })  %>% bind_rows() %>%
+          mutate(cell.id = restructured_data$cell.id)
+     score_res_project=score_res_project[match(full_data$cell.id, score_res_project$cell.id), ]
+     return(score_res_project)
+}
 

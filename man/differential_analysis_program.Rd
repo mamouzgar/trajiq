@@ -8,7 +8,7 @@ differential_analysis_program(
   glm_input,
   outcome_features,
   contrast_variables,
-  covariates_in_model,
+  covariates_in_model = NULL,
   intercept = TRUE,
   contrast_method = "emm",
   SPLIT_BY_NAMES = NULL
