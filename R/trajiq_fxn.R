@@ -227,7 +227,7 @@ TukeyWukey = function(myGLM, combos_df, contrast_variables){
      multitest_pairstest=multitest_pairstest  %>%
           bind_cols(comparison_contrasts) %>%
           mutate(padj = p.adjust(pval, method  = 'BH'),
-                 minus_log10padj  = -1*log10(padj+1))
+                 minus_log10padj  = -1*log10(padj))
      return(multitest_pairstest)
 }
 
