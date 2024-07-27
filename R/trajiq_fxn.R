@@ -236,7 +236,7 @@ TukeyWukey = function(myGLM, combos_df, contrast_variables){
 #' @description TukeyWukey
 #' @keywords internal
 #' @noRd
-emmy = function(myGLM, contrast_variables){
+emmy = function(myGLM, contrast_variables,return_conf_int_results){
      multitest_pairstest = lapply(names(myGLM), function(glm_res_name){
           glm_res = myGLM[[glm_res_name]]
 
@@ -249,11 +249,20 @@ emmy = function(myGLM, contrast_variables){
                                    feature =glm_res_name )
           } else {
 
-               emm_df = pairs(emmeans::emmeans(glm_res, "group")) %>%
-                    data.frame() %>%
-                    mutate(feature = glm_res_name) %>%
-                    dplyr::select(estimate, pval = p.value, comparison = contrast, feature)
-               # print('returning emmdf')
+               if (return_conf_int_results==TRUE){
+                    emm_df =  pairs(emmeans::emmeans(glm_res, "group")) %>%
+                         confint() %>%
+                         data.frame() %>%
+                         mutate(feature = glm_res_name) %>%
+                         dplyr::select(estimate,SE, df, lower.CL,upper.CL, comparison = contrast, feature) %>%
+                         mutate(contains0 = lower.CL >= upper.CL & lower.CL <= upper.CL)
+               } else  {
+                    emm_df = pairs(emmeans::emmeans(glm_res, "group")) %>%
+                         data.frame() %>%
+                         mutate(feature = glm_res_name) %>%
+                         dplyr::select(estimate, pval = p.value, comparison = contrast, feature)
+                    # print('returning emmdf')
+               }
           }
           return(emm_df)
      }) %>% bind_rows() %>%
@@ -267,10 +276,16 @@ emmy = function(myGLM, contrast_variables){
      })  %>% data.frame()%>%
           dplyr::rename_all(~paste0(.x,'_comparison'))
 
-     multitest_pairstest=multitest_pairstest  %>%
-          bind_cols(comparison_contrasts) %>%
-          mutate(padj = p.adjust(pval, method  = 'BH'),
-                 minus_log10padj  = -1*log10(padj))
+     if (return_conf_int_results==TRUE){
+          multitest_pairstest=multitest_pairstest  %>%
+               bind_cols(comparison_contrasts)
+
+     }     else {
+          multitest_pairstest=multitest_pairstest  %>%
+               bind_cols(comparison_contrasts) %>%
+               mutate(padj = p.adjust(pval, method  = 'BH'),
+                      minus_log10padj  = -1*log10(padj))
+     }
      return(multitest_pairstest)
 }
 
@@ -285,14 +300,14 @@ emmy = function(myGLM, contrast_variables){
 #' @description differential_analysis_program_simple
 #' @keywords internal
 #' @noRd
-differential_analysis_program_simple = function(glm_input, outcome_features,contrast_variables,covariates_in_model,intercept=TRUE,contrast_method = 'emm', return_coefs =FALSE){
+differential_analysis_program_simple = function(glm_input, outcome_features,contrast_variables,covariates_in_model,intercept=TRUE,contrast_method = 'emm', return_coefs =FALSE, return_conf_int_results=FALSE){
      glm_res = construct_model(glm_input = glm_input,outcome_features = outcome_features, contrast_variables = contrast_variables, covariates_in_model = covariates_in_model,intercept = intercept)
      # myCoef = compute_simple_coef(glm_res$myGLM)
      glm_input$group = glm_res$group
      my_group = unique(glm_input$group)
 
      if (contrast_method=='emm'){
-          DIF_RES = emmy(glm_res$myGLM, contrast_variables)
+          DIF_RES = emmy(glm_res$myGLM, contrast_variables,return_conf_int_results=return_conf_int_results)
           message('emmy complete!')
      } else if (contrast_method == 'tukey') {
 
@@ -321,15 +336,15 @@ differential_analysis_program_simple = function(glm_input, outcome_features,cont
 #' @param SPLIT_BY_NAMES A vector of groups you want to restrict each analysis within. Use this if you want to subset the analyis within distinct groups (eg, within celltype), you can use this arguement to split the analysis. Eg ,c("celltype","tissue").
 #' @param contrast_method Either estimated marginal means or tukey ('emm','tukey'). defaulst to emm
 #' @export
-differential_analysis_program = function(glm_input, outcome_features,contrast_variables,covariates_in_model=NULL,intercept=TRUE, contrast_method = 'emm', SPLIT_BY_NAMES=NULL){
+differential_analysis_program = function(glm_input, outcome_features,contrast_variables,covariates_in_model=NULL,intercept=TRUE, contrast_method = 'emm', SPLIT_BY_NAMES=NULL, return_conf_int_results=FALSE){
      if (!is.null(SPLIT_BY_NAMES)){
           DIF_RES =  glm_input %>%
                group_by_at(SPLIT_BY_NAMES)%>%
-               group_modify(~differential_analysis_program_simple(glm_input = .,outcome_features = outcome_features, contrast_variables = contrast_variables, covariates_in_model = covariates_in_model,intercept = intercept,contrast_method = contrast_method) ,
+               group_modify(~differential_analysis_program_simple(glm_input = .,outcome_features = outcome_features, contrast_variables = contrast_variables, covariates_in_model = covariates_in_model,intercept = intercept,contrast_method = contrast_method,return_conf_int_results=return_conf_int_results) ,
                             .keep = T
                )
      } else {
-          DIF_RES = differential_analysis_program_simple(glm_input = glm_input,outcome_features = outcome_features, contrast_variables = contrast_variables, covariates_in_model = covariates_in_model,intercept = intercept,contrast_method = contrast_method)
+          DIF_RES = differential_analysis_program_simple(glm_input = glm_input,outcome_features = outcome_features, contrast_variables = contrast_variables, covariates_in_model = covariates_in_model,intercept = intercept,contrast_method = contrast_method,return_conf_int_results=return_conf_int_results)
      }
      return(DIF_RES)
 }

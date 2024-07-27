@@ -11,7 +11,8 @@ differential_analysis_program(
   covariates_in_model = NULL,
   intercept = TRUE,
   contrast_method = "emm",
-  SPLIT_BY_NAMES = NULL
+  SPLIT_BY_NAMES = NULL,
+  return_conf_int_results = FALSE
 )
 }
 \arguments{
